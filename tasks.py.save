@@ -1,0 +1,21 @@
+MAIL_USERNAMEfrom celery_app import celery
+import yagmail
+
+FROM_EMAIL = os.getenv("FROM_EMAIL", "your_email@example.com")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "your_email_password")
+
+@celery.task(bind=True, max_retries=5, default_retry_delay=60)
+def send_bulk_emails(self, emails):
+    """
+    emails: list of dicts -> [{'email': 'a@example.com', 'subject': 'X', 'html': '<p>Hello</p>'}, ...]
+    """
+    try:
+        yag = yagmail.SMTP(FROM_EMAIL, EMAIL_PASSWORD)
+        for user in emails:
+            try:
+                yag.send(to=user['email'], subject=user['subject'], contents=user['html'])
+                print("Sent:", user['email'])
+            except Exception as e:
+                print("Failed:", user['email'], e)
+    except Exception as exc:
+        raise self.retry(exc=exc)

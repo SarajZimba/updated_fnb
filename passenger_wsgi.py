@@ -1,0 +1,1 @@
+from root.app import app as application
