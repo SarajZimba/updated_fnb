@@ -38,6 +38,10 @@
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
 
+#         cursor.execute("SELECT use_same_recipe FROM master_featured ORDER BY id DESC LIMIT 1")
+#         flag_row = cursor.fetchone()
+#         use_same_recipe = flag_row["use_same_recipe"] if flag_row else 0
+
 #         # First get all item types from recipe table for this outlet
 #         cursor.execute("SELECT DISTINCT ItemType FROM tblorder_detailshistory")
 #         item_types = [row["ItemType"] for row in cursor.fetchall()]
@@ -52,9 +56,20 @@
 #         for item_type in item_types:
 #             type_wise_consumption[item_type] = {}
 
-#             # Get total menu items for this type
-#             cursor.execute("SELECT COUNT(*) AS total_menu_items FROM recipe WHERE outlet = %s AND ItemType = %s", 
-#                          (outlet, item_type))
+#             # # Get total menu items for this type
+#             # cursor.execute("SELECT COUNT(*) AS total_menu_items FROM recipe WHERE outlet = %s AND ItemType = %s", 
+#             #              (outlet, item_type))
+
+#             if use_same_recipe == 1:
+#                 cursor.execute(
+#                     "SELECT COUNT(DISTINCT name) AS total_menu_items FROM recipe WHERE ItemType = %s",
+#                     (item_type,)
+#                 )
+#             else:
+#                 cursor.execute(
+#                     "SELECT COUNT(*) AS total_menu_items FROM recipe WHERE outlet = %s AND ItemType = %s",
+#                     (outlet, item_type)
+#                 )
 #             total_menu_item = cursor.fetchone()["total_menu_items"]
 #             grand_total_menu_items += total_menu_item
 
@@ -84,12 +99,19 @@
 #                 if quantity_sold > 0:
 #                     unique_items_sold += 1
 
-#                 # Check if this item exists in recipe table with the same type
-#                 cursor.execute("""
-#                     SELECT id, sellingprice, costprice 
-#                     FROM recipe 
-#                     WHERE outlet = %s AND name = %s AND ItemType = %s
-#                 """, (outlet, item_name, item_type))
+#                 if use_same_recipe == 1:
+#                     cursor.execute("""
+#                         SELECT id, sellingprice, costprice 
+#                         FROM recipe 
+#                         WHERE name = %s AND ItemType = %s
+#                         LIMIT 1
+#                     """, (item_name, item_type))
+#                 else:
+#                     cursor.execute("""
+#                         SELECT id, sellingprice, costprice 
+#                         FROM recipe 
+#                         WHERE outlet = %s AND name = %s AND ItemType = %s
+#                     """, (outlet, item_name, item_type))
 #                 recipe_info = cursor.fetchone()
 
 #                 item_data = {
@@ -262,10 +284,29 @@ from dotenv import load_dotenv
 from flask_cors import cross_origin
 from root.auth.check import token_auth
 from decimal import Decimal, ROUND_HALF_UP
+import re
 
 load_dotenv()
 
 app_file110 = Blueprint('app_file110', __name__)
+
+# Define standard UOMs
+STANDARD_UOMS = {
+    'kg', 'kilogram', 'kilograms',
+    'g', 'gram', 'grams', 'gms', 'gm', 'grm',
+    'ounce', 'ounces', 'oz',
+    'litre', 'litres', 'liter', 'liters', 'l', 'ltr',
+    'ml', 'millilitre', 'millilitres', 'milliliter', 'milliliters',
+    'lb', 'pound', 'pounds',
+    'mg', 'milligram', 'milligrams'
+}
+
+def is_standard_uom(uom):
+    """Check if UOM is a standard unit"""
+    if not uom:
+        return False
+    uom_lower = str(uom).lower().strip()
+    return uom_lower in STANDARD_UOMS
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -309,13 +350,10 @@ def menu_consumption():
         grand_total_menu_items = 0
         type_wise_consumption = {}
         all_consumed_items = {}
+        inappropriate_uom_items = []  # Track items with inappropriate UOMs
 
         for item_type in item_types:
             type_wise_consumption[item_type] = {}
-
-            # # Get total menu items for this type
-            # cursor.execute("SELECT COUNT(*) AS total_menu_items FROM recipe WHERE outlet = %s AND ItemType = %s", 
-            #              (outlet, item_type))
 
             if use_same_recipe == 1:
                 cursor.execute(
@@ -356,13 +394,6 @@ def menu_consumption():
                 if quantity_sold > 0:
                     unique_items_sold += 1
 
-                # # Check if this item exists in recipe table with the same type
-                # cursor.execute("""
-                #     SELECT id, sellingprice, costprice 
-                #     FROM recipe 
-                #     WHERE outlet = %s AND name = %s AND ItemType = %s
-                # """, (outlet, item_name, item_type))
-
                 if use_same_recipe == 1:
                     cursor.execute("""
                         SELECT id, sellingprice, costprice 
@@ -397,24 +428,41 @@ def menu_consumption():
                         total_consumed = float(ri["quantity"]) * float(quantity_sold)
                         uom = ri["uom"]
                         new_uom = ri["new_uom"]
+                        
+                        # Check if UOM is standard
+                        is_standard = is_standard_uom(uom)
+                        if not is_standard:
+                            inappropriate_uom_items.append({
+                                "item_name": ingredient_name,
+                                "uom": uom,
+                                "source": "recipe_items",
+                                "recipe": item_name,
+                                "item_type": item_type
+                            })
 
                         # Type-wise consumption
                         if ingredient_name not in type_wise_consumption[item_type]:
                             type_wise_consumption[item_type][ingredient_name] = {
                                 "total_quantity": 0, 
                                 "uom": uom, 
-                                "new_uom": new_uom
+                                "new_uom": new_uom,
+                                "is_standard_uom": is_standard  # Add flag
                             }
                         type_wise_consumption[item_type][ingredient_name]["total_quantity"] += total_consumed
+                        type_wise_consumption[item_type][ingredient_name]["is_standard_uom"] = type_wise_consumption[item_type][ingredient_name].get("is_standard_uom", True) and is_standard
 
                         # Global consumption
                         if ingredient_name not in all_consumed_items:
                             all_consumed_items[ingredient_name] = {
                                 "total_quantity": 0, 
                                 "uom": uom, 
-                                "new_uom": new_uom
+                                "new_uom": new_uom,
+                                "is_standard_uom": is_standard  # Add flag
                             }
                         all_consumed_items[ingredient_name]["total_quantity"] += total_consumed
+                        # Update flag if any occurrence is non-standard
+                        if not is_standard:
+                            all_consumed_items[ingredient_name]["is_standard_uom"] = False
 
                     # Handle sub-recipes
                     cursor.execute("""
@@ -434,46 +482,81 @@ def menu_consumption():
                                 total_consumed = float(sri["quantity"]) * float(sr["sr_qty"]) * float(quantity_sold)
                                 uom = sri["uom"]
                                 new_uom = sri["new_uom"]
+                                
+                                # Check if UOM is standard
+                                is_standard = is_standard_uom(uom)
+                                if not is_standard:
+                                    inappropriate_uom_items.append({
+                                        "item_name": ingredient_name,
+                                        "uom": uom,
+                                        "source": "sub_recipe_items",
+                                        "sub_recipe": sr["sub_name"],
+                                        "recipe": item_name,
+                                        "item_type": item_type
+                                    })
 
                                 # Type-wise consumption
                                 if ingredient_name not in type_wise_consumption[item_type]:
                                     type_wise_consumption[item_type][ingredient_name] = {
                                         "total_quantity": 0, 
                                         "uom": uom, 
-                                        "new_uom": new_uom
+                                        "new_uom": new_uom,
+                                        "is_standard_uom": is_standard
                                     }
                                 type_wise_consumption[item_type][ingredient_name]["total_quantity"] += total_consumed
+                                if not is_standard:
+                                    type_wise_consumption[item_type][ingredient_name]["is_standard_uom"] = False
 
                                 # Global consumption
                                 if ingredient_name not in all_consumed_items:
                                     all_consumed_items[ingredient_name] = {
                                         "total_quantity": 0, 
                                         "uom": uom, 
-                                        "new_uom": new_uom
+                                        "new_uom": new_uom,
+                                        "is_standard_uom": is_standard
                                     }
                                 all_consumed_items[ingredient_name]["total_quantity"] += total_consumed
+                                if not is_standard:
+                                    all_consumed_items[ingredient_name]["is_standard_uom"] = False
                         else:
                             sub_recipe_name = sr["sub_name"]
                             total_consumed = float(sr["sr_qty"]) * float(quantity_sold)
                             uom = sr["uom"]
                             new_uom = sr.get("new_uom", "")
+                            
+                            # Check if UOM is standard
+                            is_standard = is_standard_uom(uom)
+                            if not is_standard:
+                                inappropriate_uom_items.append({
+                                    "item_name": sub_recipe_name,
+                                    "uom": uom,
+                                    "source": "sub_recipe",
+                                    "recipe": item_name,
+                                    "item_type": item_type
+                                })
 
                             if sub_recipe_name not in type_wise_consumption[item_type]:
                                 type_wise_consumption[item_type][sub_recipe_name] = {
                                     "total_quantity": 0,
                                     "uom": uom,
                                     "new_uom": new_uom,
-                                    "is_sub_recipe": True
+                                    "is_sub_recipe": True,
+                                    "is_standard_uom": is_standard
                                 }
                             type_wise_consumption[item_type][sub_recipe_name]["total_quantity"] += total_consumed
+                            if not is_standard:
+                                type_wise_consumption[item_type][sub_recipe_name]["is_standard_uom"] = False
 
                             if sub_recipe_name not in all_consumed_items:
                                 all_consumed_items[sub_recipe_name] = {
                                     "total_quantity": 0,
                                     "uom": uom,
-                                    "new_uom": new_uom
+                                    "new_uom": new_uom,
+                                    "is_standard_uom": is_standard
                                 }
                             all_consumed_items[sub_recipe_name]["total_quantity"] += total_consumed
+                            if not is_standard:
+                                all_consumed_items[sub_recipe_name]["is_standard_uom"] = False
 
                 itemwise.append(item_data)
 
@@ -487,7 +570,7 @@ def menu_consumption():
                 "total_menu_items": total_menu_item,
             }
 
-        # Rest of your code for rounding and grouping remains the same...
+        # Round the quantities
         for item_type, ingredients in type_wise_consumption.items():
             for ingredient in ingredients.values():
                 ingredient["total_quantity"] = float(Decimal(ingredient["total_quantity"]).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
@@ -508,6 +591,7 @@ def menu_consumption():
             total_quantity = float(Decimal(info["total_quantity"]).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
             uom = info.get("uom")
             new_uom = info.get("new_uom")
+            is_standard_uom_flag = info.get("is_standard_uom", False)
 
             stock_info = stock_info_lookup.get(name, {"GroupName": "Group Not Found", "Type": "Type Not Found"})
             group_name = stock_info["GroupName"]
@@ -523,18 +607,28 @@ def menu_consumption():
                 "name": name,
                 "uom": uom,
                 "new_uom": new_uom,
-                "total_quantity": total_quantity
+                "total_quantity": total_quantity,
+                "is_standard_uom": is_standard_uom_flag  # Add flag to final output
             })
 
         cursor.close()
         conn.close()
+        
+        # Prepare warning summary
+        inappropriate_uom_summary = {
+            "has_inappropriate_uoms": len(inappropriate_uom_items) > 0,
+            "total_inappropriate_items": len(inappropriate_uom_items),
+            "inappropriate_items": inappropriate_uom_items
+        }
+        
         return jsonify({
             "grouped_by_item_type": result,
             "grand_total_items_sold": grand_total_items_sold,
             "grand_unique_items_sold": grand_unique_items_sold,
             "grand_total_menu_items": grand_total_menu_items,
             "type_wise_consumption": type_wise_consumption,
-            "all_consumed_items": nested_consumed_group
+            "all_consumed_items": nested_consumed_group,
+            "uom_validation": inappropriate_uom_summary  # Add UOM validation summary
         }), 200
 
     except Exception as e:

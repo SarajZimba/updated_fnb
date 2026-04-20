@@ -46,13 +46,34 @@ def postStock():
         # Get the id of the last inserted record in intblstorerequisition
         store_req_id = cursor.lastrowid
 
+        costcenter = formatted_date,store_requisition["CostCenter"]
+
+        item_type = "Food"
+        if costcenter == "Kitchen":
+            item_type = "Food"
+
+        else:
+            item_type = "Beverage"
+
         for item in store_itemdetails:
 
-            insert_storerequisitiondetailsSql = """ Insert into intblstorereqdetails (`ItemName`, `GroupName`, `BrandName`, `Amount`, `UOM`, `Rate`, `StoreReqID`) values (%s,%s,%s,%s,%s,%s,%s)"""
+            insert_storerequisitiondetailsSql = """ Insert into intblstorereqdetails (`ItemName`, `GroupName`, `BrandName`, `Amount`, `UOM`, `Rate`, `StoreReqID`, `itemtype`) values (%s,%s,%s,%s,%s,%s,%s,%s)"""
 
 
-            cursor.execute(insert_storerequisitiondetailsSql, (item["ItemName"], item["GroupName"], item["BrandName"], item["Amount"], item["UOM"], item["Rate"], store_req_id,))
+            cursor.execute(insert_storerequisitiondetailsSql, (item["ItemName"], item["GroupName"], item["BrandName"], item["Amount"], item["UOM"], item["Rate"], store_req_id,item_type))
 
+
+            # Always insert new entry into item_current_level (sequential entry)
+            cursor.execute("""
+                INSERT INTO item_current_level (itemname, quantity, rate, outlet, costcenter)
+                VALUES (%s, %s, %s, %s)
+            """, (
+                item['item_name'],
+                float(item['quantity']),
+                float(item['price']),
+                store_requisition["OutletName"],
+                costcenter                
+            ))
 
         # Commit the transaction to save changes
         mydb.commit()

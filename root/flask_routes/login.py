@@ -11,6 +11,10 @@ app_file4 = Blueprint('app_file4',__name__)
 @cross_origin()
 def login():
     try:
+
+        print(os.getenv('host'))
+        print(os.getenv('user'))
+        print(os.getenv('password'))
         mydb = mysql.connector.connect(host=os.getenv('host'), user=os.getenv('user'), password=os.getenv('password'))
         cursor = mydb.cursor(buffered=True)
         database_sql = "USE {};".format(os.getenv('database'))

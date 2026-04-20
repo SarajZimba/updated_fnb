@@ -167,6 +167,7 @@ from root.flask_routes.employee_outlets.give_employee_outlets import app_file220
 from root.flask_routes.employee_outlets.remove_employeeaccess_to_outlet import app_file221
 
 from root.flask_routes.postdebitnote import app_file224
+from root.flask_routes.menuengineering.getphysicalcost import app_file225
 
 
 app.register_blueprint(app_file1)
@@ -315,6 +316,7 @@ app.register_blueprint(app_file217)
 app.register_blueprint(app_file220)
 app.register_blueprint(app_file221)
 app.register_blueprint(app_file224)
+app.register_blueprint(app_file225)
 
 
 @app.route("/entry1", methods=["POST"])

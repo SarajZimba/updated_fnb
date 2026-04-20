@@ -101,7 +101,7 @@ from collections import defaultdict
 def adjust_item_current_level_after_sale(recipe_name, sold_qty, outlet, cursor, mydb, order_date):
     # Step 1: Get recipe ID
     cursor.execute("""
-        SELECT id FROM recipe WHERE name = %s AND outlet = %s
+        SELECT id, ItemType FROM recipe WHERE name = %s AND outlet = %s
     """, (recipe_name, outlet))
     recipe_row = cursor.fetchone()
     if not recipe_row:
@@ -109,6 +109,8 @@ def adjust_item_current_level_after_sale(recipe_name, sold_qty, outlet, cursor, 
         return
 
     recipe_id = recipe_row[0]
+
+    recipe_item_type = recipe_row[1]
 
     # Step 2: Initialize ingredient aggregator
     aggregated_ingredients = defaultdict(float)
@@ -142,14 +144,20 @@ def adjust_item_current_level_after_sale(recipe_name, sold_qty, outlet, cursor, 
             total_sub_qty = float(Decimal(sub_recipe_qty) * Decimal(item_qty) * Decimal(sold_qty))
             aggregated_ingredients[item_name] += total_sub_qty
 
+    if recipe_item_type == "Food":
+        costcenter = "Kitchen"
+
+    else:
+        costcenter = "Bar"
+
     # Step 5: Decrease from inventory & insert into consumption tracker
     for ingredient_name, total_to_decrease in aggregated_ingredients.items():
         while total_to_decrease > 0:
             cursor.execute("""
                 SELECT id, quantity, rate FROM item_current_level
-                WHERE itemname = %s AND outlet = %s AND quantity > 0
+                WHERE itemname = %s AND outlet = %s AND quantity > 0 and costcenter=%s
                 ORDER BY id ASC LIMIT 1
-            """, (ingredient_name, outlet))
+            """, (ingredient_name, outlet, costcenter))
             stock_row = cursor.fetchone()
 
             if stock_row:
@@ -166,9 +174,9 @@ def adjust_item_current_level_after_sale(recipe_name, sold_qty, outlet, cursor, 
 
                     # Track consumption
                     cursor.execute("""
-                        INSERT INTO consumption_tracker (item_name, consumed_quantity, rate, outlet, recipe_name, order_date)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (ingredient_name, total_to_decrease, rate, outlet, recipe_name, order_date))
+                        INSERT INTO consumption_tracker (item_name, consumed_quantity, rate, outlet, recipe_name, order_date, ItemType)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (ingredient_name, total_to_decrease, rate, outlet, recipe_name, order_date, recipe_item_type))
                     mydb.commit()
 
                     total_to_decrease = 0
@@ -182,9 +190,9 @@ def adjust_item_current_level_after_sale(recipe_name, sold_qty, outlet, cursor, 
 
                     # Track partial consumption
                     cursor.execute("""
-                        INSERT INTO consumption_tracker (item_name, consumed_quantity, rate, outlet, recipe_name, order_date)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (ingredient_name, current_qty, rate, outlet, recipe_name, order_date))
+                        INSERT INTO consumption_tracker (item_name, consumed_quantity, rate, outlet, recipe_name, order_date, ItemType)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (ingredient_name, current_qty, rate, outlet, recipe_name, order_date, recipe_item_type))
                     mydb.commit()
 
                     total_to_decrease -= float(current_qty)

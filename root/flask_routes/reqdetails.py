@@ -172,15 +172,35 @@ def reqdetails(id):
         if not purchase_requisition:
             return {"error": "Purchase requisition not found"}, 404
 
-        # -------- FETCH LAST PURCHASE RATE FOR EACH ITEM --------
+        # # -------- FETCH LAST PURCHASE RATE FOR EACH ITEM --------
+        # last_purchase_data = []
+        # for item in contract_items:
+        #     sql = """SELECT Rate as last_purchase 
+        #              FROM `intbl_purchaserequisition_contract` 
+        #              WHERE ItemID = %s AND PurchaseReqID != %s  AND 
+        #              ORDER BY PurchaseReqID DESC 
+        #              LIMIT 1;"""
+        #     cursor.execute(sql, (item['ItemID'], id))
+        #     result = cursor.fetchone()
+        #     last_purchase_data.append({"last_purchase": result['last_purchase'] if result else 0})
+
+        # Complete corrected section:
         last_purchase_data = []
+        outlet_name = purchase_requisition.get('Outlet_Name')
+        outlet_purchase_req_id = purchase_requisition.get('Outlet_PurchaseReqID')
+
         for item in contract_items:
-            sql = """SELECT Rate as last_purchase 
-                     FROM `intbl_purchaserequisition_contract` 
-                     WHERE ItemID = %s AND PurchaseReqID != %s 
-                     ORDER BY PurchaseReqID DESC 
-                     LIMIT 1;"""
-            cursor.execute(sql, (item['ItemID'], id))
+            sql = """
+                SELECT pc.Rate as last_purchase 
+                FROM intbl_purchaserequisition_contract pc
+                INNER JOIN intbl_purchaserequisition pr ON pc.PurchaseReqID = pr.IDIntbl_PurchaseRequisition
+                WHERE pc.ItemID = %s 
+                AND pc.PurchaseReqID != %s  
+                AND pr.Outlet_Name = %s
+                ORDER BY pr.ReceivedDate DESC, pc.PurchaseReqID DESC
+                LIMIT 1
+            """
+            cursor.execute(sql, (item['ItemID'], id, outlet_name))
             result = cursor.fetchone()
             last_purchase_data.append({"last_purchase": result['last_purchase'] if result else 0})
 
