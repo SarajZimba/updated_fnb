@@ -898,12 +898,294 @@ def verify_cost_calculation():
     return "Test complete"
 
 
+# @app_file107.route("/sub-recipes/bulk", methods=["POST"])
+# @cross_origin()
+# def create_bulk_sub_recipes_simple():
+#     """
+#     Simple bulk sub-recipe creation without any calculations.
+#     Frontend should provide all pre-calculated values.
+#     """
+#     mydb = None
+#     cursor = None
+#     try:
+#         data = request.get_json()
+#         token = data.get("token")
+#         if not token or not token_auth(token):
+#             return jsonify({"error": "Invalid or missing token."}), 400
+
+#         sub_recipes = data.get("sub_recipes_bulk", [])
+        
+#         if not isinstance(sub_recipes, list) or len(sub_recipes) == 0:
+#             return jsonify({"error": "sub_recipes must be a non-empty list"}), 400
+
+#         # Get outlet from first recipe (assuming all recipes belong to same outlet)
+#         outlet = sub_recipes[0].get("outlet") if sub_recipes else None
+#         if not outlet:
+#             return jsonify({"error": "Outlet is required"}), 400
+
+#         mydb = get_db_connection()
+#         cursor = mydb.cursor()
+        
+#         # ------------------------
+#         # DELETE existing sub-recipes for this outlet
+#         # ------------------------
+#         cursor.execute("SELECT id FROM sub_recipe WHERE outlet = %s", (outlet,))
+#         existing_recipe_ids = cursor.fetchall()
+        
+#         if existing_recipe_ids:
+#             # Delete items from sub_recipe_items for these recipes
+#             ids_tuple = tuple([id[0] for id in existing_recipe_ids])
+#             cursor.execute(f"DELETE FROM sub_recipe_items WHERE sub_recipe_id IN ({','.join(['%s']*len(ids_tuple))})", ids_tuple)
+            
+#             # Delete the sub_recipes themselves
+#             cursor.execute("DELETE FROM sub_recipe WHERE outlet = %s", (outlet,))
+        
+#         # ------------------------
+#         # Validate and save recipes (no calculations)
+#         # ------------------------
+#         valid_recipes = []
+#         skipped_recipes_summary = []
+#         created_recipes = []
+        
+#         for idx, recipe_data in enumerate(sub_recipes):
+#             name = recipe_data.get("name")
+#             recipe_outlet = recipe_data.get("outlet")
+#             uom = recipe_data.get("uom")
+#             unit = recipe_data.get("unit", 1)
+#             costprice = recipe_data.get("costprice", 0)  # Frontend provides total cost
+#             items = recipe_data.get("bulk_items", [])
+            
+#             # Validate required fields
+#             if not name:
+#                 skipped_recipes_summary.append({
+#                     "index": idx,
+#                     "recipe_name": "Unnamed",
+#                     "error": "Missing name, recipe skipped"
+#                 })
+#                 continue
+                
+#             if not recipe_outlet:
+#                 skipped_recipes_summary.append({
+#                     "index": idx,
+#                     "recipe_name": name,
+#                     "error": "Missing outlet, recipe skipped"
+#                 })
+#                 continue
+            
+#             if recipe_outlet != outlet:
+#                 skipped_recipes_summary.append({
+#                     "index": idx,
+#                     "recipe_name": name,
+#                     "error": f"Outlet mismatch. Expected {outlet}, got {recipe_outlet}, recipe skipped"
+#                 })
+#                 continue
+            
+#             if not isinstance(items, list):
+#                 skipped_recipes_summary.append({
+#                     "index": idx,
+#                     "recipe_name": name,
+#                     "error": "Items must be a list, recipe skipped"
+#                 })
+#                 continue
+            
+#             # Validate items (basic validation only)
+#             valid_items = []
+#             skipped_items = []
+            
+#             for item_idx, item in enumerate(items):
+#                 item_name = item.get("name")
+#                 rate = item.get("rate")
+#                 quantity = item.get("quantity")  # This is already converted quantity
+#                 cost = item.get("cost")  # Frontend provides pre-calculated cost
+#                 uom = item.get("uom")
+#                 new_uom = item.get("new_uom")
+#                 unit = item.get("unit", 1)
+                
+#                 # Check required fields
+#                 missing_fields = []
+#                 if not item_name:
+#                     missing_fields.append("name")
+#                 if rate is None:
+#                     missing_fields.append("rate")
+#                 if quantity is None:
+#                     missing_fields.append("quantity")
+#                 if cost is None:
+#                     missing_fields.append("cost")
+#                 if not uom:
+#                     missing_fields.append("uom")
+#                 if not new_uom:
+#                     missing_fields.append("new_uom")
+                
+#                 if missing_fields:
+#                     skipped_items.append({
+#                         "item_index": item_idx,
+#                         "item_name": item_name or "Unknown",
+#                         "missing_fields": missing_fields,
+#                         "error": f"Missing required fields: {', '.join(missing_fields)}"
+#                     })
+#                     continue
+                
+#                 # Validate numeric values
+#                 try:
+#                     rate = float(rate)
+#                     quantity = float(quantity)
+#                     cost = float(cost)
+#                     unit = float(unit)
+                    
+#                     if rate < 0:
+#                         skipped_items.append({
+#                             "item_index": item_idx,
+#                             "item_name": item_name,
+#                             "error": "Rate cannot be negative"
+#                         })
+#                         continue
+                        
+#                     if quantity < 0:
+#                         skipped_items.append({
+#                             "item_index": item_idx,
+#                             "item_name": item_name,
+#                             "error": "Quantity cannot be negative"
+#                         })
+#                         continue
+                        
+#                     if cost < 0:
+#                         skipped_items.append({
+#                             "item_index": item_idx,
+#                             "item_name": item_name,
+#                             "error": "Cost cannot be negative"
+#                         })
+#                         continue
+                        
+#                 except (ValueError, TypeError):
+#                     skipped_items.append({
+#                         "item_index": item_idx,
+#                         "item_name": item_name,
+#                         "error": "Invalid numeric value for rate, quantity, cost, or unit"
+#                     })
+#                     continue
+                
+#                 # All validations passed - store as-is
+#                 valid_items.append({
+#                     "name": item_name,
+#                     "rate": rate,
+#                     "quantity": quantity,  # Already converted quantity
+#                     "cost": cost,  # Pre-calculated cost
+#                     "uom": uom,
+#                     "new_uom": new_uom,
+#                     "unit": unit
+#                 })
+            
+#             # Store recipe even if no items (just with zero cost)
+#             valid_recipes.append({
+#                 "name": name,
+#                 "outlet": recipe_outlet,
+#                 "uom": uom,
+#                 "unit": unit,
+#                 "costprice": costprice,  # Frontend provides total cost
+#                 "items": valid_items,
+#                 "original_index": idx,
+#                 "skipped_items": skipped_items
+#             })
+            
+#             if skipped_items:
+#                 skipped_recipes_summary.append({
+#                     "index": idx,
+#                     "recipe_name": name,
+#                     "skipped_items_count": len(skipped_items),
+#                     "skipped_items": skipped_items,
+#                     "valid_items_count": len(valid_items)
+#                 })
+        
+#         if not valid_recipes:
+#             cursor.close()
+#             mydb.close()
+#             return jsonify({
+#                 "error": "No valid recipes to create",
+#                 "skipped_recipes": skipped_recipes_summary
+#             }), 400
+
+#         # ------------------------
+#         # Insert recipes without calculations
+#         # ------------------------
+#         for recipe_data in valid_recipes:
+#             name = recipe_data["name"]
+#             recipe_outlet = recipe_data["outlet"]
+#             uom = recipe_data.get("uom")
+#             unit = recipe_data.get("unit", 1)
+#             costprice = recipe_data.get("costprice", 0)
+#             items = recipe_data["items"]
+            
+#             # Insert into sub_recipe
+#             cursor.execute("""
+#                 INSERT INTO sub_recipe (name, outlet, uom, unit, costprice)
+#                 VALUES (%s, %s, %s, %s, %s)
+#             """, (name, recipe_outlet, uom, unit, costprice))
+#             sub_recipe_id = cursor.lastrowid
+            
+#             # Insert sub_recipe items directly (no calculations)
+#             items_inserted = 0
+#             for item in items:
+#                 cursor.execute("""
+#                     INSERT INTO sub_recipe_items (
+#                         sub_recipe_id, name, rate, uom, new_uom, 
+#                         quantity, cost, unit
+#                     )
+#                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+#                 """, (
+#                     sub_recipe_id, 
+#                     item["name"], 
+#                     item["rate"], 
+#                     item["uom"], 
+#                     item["new_uom"], 
+#                     item["quantity"],  # Direct use - no conversion
+#                     item["cost"],      # Direct use - no calculation
+#                     item["unit"]
+#                 ))
+#                 items_inserted += 1
+            
+#             created_recipes.append({
+#                 "id": sub_recipe_id,
+#                 "name": name,
+#                 "outlet": recipe_outlet,
+#                 "items_count": items_inserted,
+#                 "skipped_items_count": len(recipe_data.get("skipped_items", [])),
+#                 "total_costprice": costprice
+#             })
+        
+#         mydb.commit()
+#         cursor.close()
+#         mydb.close()
+        
+#         response = {
+#             "message": f"Successfully created {len(created_recipes)} sub-recipes",
+#             "created_recipes": created_recipes,
+#             "total_created": len(created_recipes),
+#             "deleted_existing": len(existing_recipe_ids) if existing_recipe_ids else 0
+#         }
+        
+#         if skipped_recipes_summary:
+#             response["warning"] = "Some items were skipped due to validation errors"
+#             response["skipped_items_summary"] = skipped_recipes_summary
+        
+#         return jsonify(response), 201
+        
+#     except Exception as e:
+#         if mydb:
+#             mydb.rollback()
+#         return jsonify({"error": str(e)}), 400
+#     finally:
+#         if cursor:
+#             cursor.close()
+#         if mydb:
+#             mydb.close()
+
+
 @app_file107.route("/sub-recipes/bulk", methods=["POST"])
 @cross_origin()
 def create_bulk_sub_recipes_simple():
     """
-    Simple bulk sub-recipe creation without any calculations.
-    Frontend should provide all pre-calculated values.
+    Bulk sub-recipe creation with quantity conversion logic.
+    Converts from user's unit (new_uom) to base unit (uom)
     """
     mydb = None
     cursor = None
@@ -924,7 +1206,140 @@ def create_bulk_sub_recipes_simple():
             return jsonify({"error": "Outlet is required"}), 400
 
         mydb = get_db_connection()
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
+        
+        # Helper function to normalize unit names
+        def normalize_unit(unit):
+            if not unit:
+                return None
+            unit_lower = str(unit).lower().strip()
+            # Gram variants
+            if unit_lower in ['g', 'gm', 'gram', 'grams', 'grm', 'grms', 'gs']:
+                return 'g'
+            # Kilogram variants
+            elif unit_lower in ['kg', 'kgs', 'kilogram', 'kilograms', 'kilo']:
+                return 'kg'
+            # Millilitre variants
+            elif unit_lower in ['ml', 'milliliter', 'millilitre', 'mls']:
+                return 'ml'
+            # Litre variants
+            elif unit_lower in ['l', 'lt', 'ltr', 'liter', 'litre', 'ltrs']:
+                return 'l'
+            # Unit/piece variants
+            elif unit_lower in ['unit', 'units', 'pcs', 'pc', 'piece', 'pieces', 'nos', 'no', 'pkt', 'pkts', 'jar', 'btl', 'bottle']:
+                return 'unit'
+            else:
+                return unit_lower
+
+        # def calculate_converted_quantity(quantity, from_unit, to_unit, unit_value=1):
+        #     """
+        #     Convert quantity from from_unit to to_unit
+        #     quantity: amount in from_unit
+        #     from_unit: unit to convert from (user's entered unit - new_uom)
+        #     to_unit: unit to convert to (system base unit - uom)
+        #     unit_value: conversion factor (e.g., 1000 for g to kg, or grams per packet)
+        #     """
+        #     if not quantity:
+        #         return 0
+            
+        #     try:
+        #         qty = float(quantity)
+        #         from_norm = normalize_unit(from_unit)
+        #         to_norm = normalize_unit(to_unit)
+                
+        #         # If same unit, no conversion needed
+        #         if from_norm == to_norm:
+        #             return qty
+                
+        #         # Handle Unit/Piece conversions (including Pkt, Jar, Btl, etc.)
+        #         if from_norm == 'unit' or to_norm == 'unit':
+        #             if unit_value and unit_value != 0:
+        #                 if from_norm == 'unit' and to_norm != 'unit':
+        #                     # Converting from unit (e.g., Pkt) to weight/volume (e.g., Grms)
+        #                     return qty * float(unit_value)
+        #                 elif from_norm != 'unit' and to_norm == 'unit':
+        #                     # Converting from weight/volume (e.g., Grms) to unit (e.g., Pkt)
+        #                     return qty / float(unit_value)
+        #                 else:
+        #                     return qty
+                
+        #         # Weight conversions (g <-> kg)
+        #         if from_norm == 'g' and to_norm == 'kg':
+        #             return qty / 1000
+        #         elif from_norm == 'kg' and to_norm == 'g':
+        #             return qty * 1000
+                
+        #         # Volume conversions (ml <-> l)
+        #         elif from_norm == 'ml' and to_norm == 'l':
+        #             return qty / 1000
+        #         elif from_norm == 'l' and to_norm == 'ml':
+        #             return qty * 1000
+                
+        #         # If no conversion rule, return original
+        #         return qty
+                
+        #     except Exception as e:
+        #         print(f"Conversion error: {e}")
+        #         return quantity
+
+        def calculate_converted_quantity(quantity, from_unit, to_unit, unit_value=1):
+            """
+            Convert quantity from from_unit to to_unit for per-unit basis
+            
+            For compatible units (g↔kg, ml↔l):
+                - Convert to base unit first, then divide by unit_value
+                - Example: 20 Grms → Kg with unit=1000 -> (20/1000)/1000 = 0.00002
+            
+            For incompatible units (Grms→Jar, ml→Btl, etc.):
+                - Only divide by unit_value (no base conversion)
+                - Example: 20 Grms → Jar with unit=5000 -> 20/5000 = 0.004
+            """
+            if not quantity:
+                return 0
+            
+            try:
+                qty = float(quantity)
+                from_norm = normalize_unit(from_unit)
+                to_norm = normalize_unit(to_unit)
+                
+                # Check if converting between compatible units (both weight or both volume)
+                weight_units = ['g', 'kg']
+                volume_units = ['ml', 'l']
+                
+                is_weight_conversion = from_norm in weight_units and to_norm in weight_units
+                is_volume_conversion = from_norm in volume_units and to_norm in volume_units
+                is_compatible_conversion = is_weight_conversion or is_volume_conversion
+                
+                if is_compatible_conversion:
+                    # Step 1: Convert to base unit
+                    if from_norm == 'g' and to_norm == 'kg':
+                        converted = qty / 1000
+                    elif from_norm == 'kg' and to_norm == 'g':
+                        converted = qty * 1000
+                    elif from_norm == 'ml' and to_norm == 'l':
+                        converted = qty / 1000
+                    elif from_norm == 'l' and to_norm == 'ml':
+                        converted = qty * 1000
+                    else:
+                        converted = qty
+                    
+                    # Step 2: Divide by unit_value for per-unit basis
+                    if unit_value and unit_value != 0:
+                        final_quantity = converted / float(unit_value)
+                    else:
+                        final_quantity = converted
+                else:
+                    # Incompatible units - just divide by unit_value
+                    if unit_value and unit_value != 0:
+                        final_quantity = qty / float(unit_value)
+                    else:
+                        final_quantity = qty
+                
+                return round(final_quantity, 10)
+                
+            except Exception as e:
+                print(f"Conversion error: {e}")
+                return quantity
         
         # ------------------------
         # DELETE existing sub-recipes for this outlet
@@ -934,14 +1349,15 @@ def create_bulk_sub_recipes_simple():
         
         if existing_recipe_ids:
             # Delete items from sub_recipe_items for these recipes
-            ids_tuple = tuple([id[0] for id in existing_recipe_ids])
-            cursor.execute(f"DELETE FROM sub_recipe_items WHERE sub_recipe_id IN ({','.join(['%s']*len(ids_tuple))})", ids_tuple)
+            ids_tuple = tuple([id['id'] for id in existing_recipe_ids])
+            placeholders = ','.join(['%s'] * len(ids_tuple))
+            cursor.execute(f"DELETE FROM sub_recipe_items WHERE sub_recipe_id IN ({placeholders})", ids_tuple)
             
             # Delete the sub_recipes themselves
             cursor.execute("DELETE FROM sub_recipe WHERE outlet = %s", (outlet,))
         
         # ------------------------
-        # Validate and save recipes (no calculations)
+        # Validate and save recipes with conversion
         # ------------------------
         valid_recipes = []
         skipped_recipes_summary = []
@@ -950,9 +1366,9 @@ def create_bulk_sub_recipes_simple():
         for idx, recipe_data in enumerate(sub_recipes):
             name = recipe_data.get("name")
             recipe_outlet = recipe_data.get("outlet")
-            uom = recipe_data.get("uom")
-            unit = recipe_data.get("unit", 1)
-            costprice = recipe_data.get("costprice", 0)  # Frontend provides total cost
+            uom = recipe_data.get("uom")  # Base unit for the sub-recipe
+            unit = recipe_data.get("unit", 1)  # Conversion factor for the sub-recipe
+            costprice = recipe_data.get("costprice", 0)  # Total cost (can be recalculated)
             items = recipe_data.get("bulk_items", [])
             
             # Validate required fields
@@ -980,6 +1396,14 @@ def create_bulk_sub_recipes_simple():
                 })
                 continue
             
+            if not uom:
+                skipped_recipes_summary.append({
+                    "index": idx,
+                    "recipe_name": name,
+                    "error": "Missing uom (base unit), recipe skipped"
+                })
+                continue
+            
             if not isinstance(items, list):
                 skipped_recipes_summary.append({
                     "index": idx,
@@ -988,18 +1412,19 @@ def create_bulk_sub_recipes_simple():
                 })
                 continue
             
-            # Validate items (basic validation only)
+            # Validate and convert items
             valid_items = []
             skipped_items = []
+            total_calculated_cost = 0
             
             for item_idx, item in enumerate(items):
                 item_name = item.get("name")
                 rate = item.get("rate")
-                quantity = item.get("quantity")  # This is already converted quantity
-                cost = item.get("cost")  # Frontend provides pre-calculated cost
-                uom = item.get("uom")
-                new_uom = item.get("new_uom")
-                unit = item.get("unit", 1)
+                user_quantity = item.get("quantity")  # Quantity in user's unit
+                user_cost = item.get("cost")  # Cost provided by frontend (optional, can recalculate)
+                item_uom = item.get("uom")  # Base unit for this item
+                item_new_uom = item.get("new_uom")  # User's entered unit for this item
+                item_unit = item.get("unit", 1)  # Conversion factor for this item
                 
                 # Check required fields
                 missing_fields = []
@@ -1007,13 +1432,11 @@ def create_bulk_sub_recipes_simple():
                     missing_fields.append("name")
                 if rate is None:
                     missing_fields.append("rate")
-                if quantity is None:
+                if user_quantity is None:
                     missing_fields.append("quantity")
-                if cost is None:
-                    missing_fields.append("cost")
-                if not uom:
+                if not item_uom:
                     missing_fields.append("uom")
-                if not new_uom:
+                if not item_new_uom:
                     missing_fields.append("new_uom")
                 
                 if missing_fields:
@@ -1028,9 +1451,8 @@ def create_bulk_sub_recipes_simple():
                 # Validate numeric values
                 try:
                     rate = float(rate)
-                    quantity = float(quantity)
-                    cost = float(cost)
-                    unit = float(unit)
+                    user_quantity = float(user_quantity)
+                    item_unit = float(item_unit)
                     
                     if rate < 0:
                         skipped_items.append({
@@ -1040,7 +1462,7 @@ def create_bulk_sub_recipes_simple():
                         })
                         continue
                         
-                    if quantity < 0:
+                    if user_quantity < 0:
                         skipped_items.append({
                             "item_index": item_idx,
                             "item_name": item_name,
@@ -1048,40 +1470,65 @@ def create_bulk_sub_recipes_simple():
                         })
                         continue
                         
-                    if cost < 0:
-                        skipped_items.append({
-                            "item_index": item_idx,
-                            "item_name": item_name,
-                            "error": "Cost cannot be negative"
-                        })
-                        continue
-                        
                 except (ValueError, TypeError):
                     skipped_items.append({
                         "item_index": item_idx,
                         "item_name": item_name,
-                        "error": "Invalid numeric value for rate, quantity, cost, or unit"
+                        "error": "Invalid numeric value for rate, quantity, or unit"
                     })
                     continue
                 
-                # All validations passed - store as-is
+                # Calculate converted quantity - CONVERT FROM new_uom TO uom
+                converted_quantity = calculate_converted_quantity(
+                    user_quantity,    # User's quantity
+                    item_new_uom,     # FROM: user's unit
+                    item_uom,         # TO: base unit
+                    item_unit         # Conversion factor
+                )
+                
+                # Calculate cost if not provided or recalculate for accuracy
+                if user_cost is not None:
+                    try:
+                        calculated_cost = converted_quantity * rate
+                        # Use provided cost but log if there's a mismatch
+                        final_cost = float(user_cost)
+                        if abs(final_cost - calculated_cost) > 0.01:  # Small tolerance for rounding
+                            print(f"Cost mismatch for {item_name}: provided={final_cost}, calculated={calculated_cost}")
+                    except:
+                        final_cost = converted_quantity * rate
+                else:
+                    final_cost = converted_quantity * rate
+                
+                total_calculated_cost += final_cost
+                
+                # Debug print
+                print(f"Sub-recipe Item: {item_name}")
+                print(f"  User entered: {user_quantity} {item_new_uom}")
+                print(f"  Base unit: {item_uom}, unit_value: {item_unit}")
+                print(f"  Converted quantity: {converted_quantity} {item_uom}")
+                print(f"  Cost: {final_cost}")
+                
+                # All validations passed - store converted values
                 valid_items.append({
                     "name": item_name,
                     "rate": rate,
-                    "quantity": quantity,  # Already converted quantity
-                    "cost": cost,  # Pre-calculated cost
-                    "uom": uom,
-                    "new_uom": new_uom,
-                    "unit": unit
+                    "quantity": converted_quantity,  # Store converted quantity
+                    "cost": final_cost,  # Store calculated cost
+                    "uom": item_uom,  # Base unit
+                    "new_uom": item_new_uom,  # User's unit
+                    "unit": item_unit
                 })
             
-            # Store recipe even if no items (just with zero cost)
+            # Use provided costprice or calculated total
+            final_costprice = costprice if costprice > 0 else total_calculated_cost
+            
+            # Store recipe with converted items
             valid_recipes.append({
                 "name": name,
                 "outlet": recipe_outlet,
                 "uom": uom,
                 "unit": unit,
-                "costprice": costprice,  # Frontend provides total cost
+                "costprice": final_costprice,
                 "items": valid_items,
                 "original_index": idx,
                 "skipped_items": skipped_items
@@ -1105,7 +1552,7 @@ def create_bulk_sub_recipes_simple():
             }), 400
 
         # ------------------------
-        # Insert recipes without calculations
+        # Insert recipes with converted values
         # ------------------------
         for recipe_data in valid_recipes:
             name = recipe_data["name"]
@@ -1122,7 +1569,7 @@ def create_bulk_sub_recipes_simple():
             """, (name, recipe_outlet, uom, unit, costprice))
             sub_recipe_id = cursor.lastrowid
             
-            # Insert sub_recipe items directly (no calculations)
+            # Insert sub_recipe items with converted quantities
             items_inserted = 0
             for item in items:
                 cursor.execute("""
@@ -1135,10 +1582,10 @@ def create_bulk_sub_recipes_simple():
                     sub_recipe_id, 
                     item["name"], 
                     item["rate"], 
-                    item["uom"], 
-                    item["new_uom"], 
-                    item["quantity"],  # Direct use - no conversion
-                    item["cost"],      # Direct use - no calculation
+                    item["uom"],      # Base unit
+                    item["new_uom"],  # User's unit
+                    item["quantity"], # Converted quantity
+                    item["cost"],     # Calculated cost
                     item["unit"]
                 ))
                 items_inserted += 1
@@ -1178,3 +1625,154 @@ def create_bulk_sub_recipes_simple():
             cursor.close()
         if mydb:
             mydb.close()
+
+
+@app_file107.route("/sub-recipe-v2/<int:id>", methods=["PUT", "PATCH"])
+@cross_origin()
+def update_sub_recipe_v2(id):
+    """
+    New version of sub-recipe update with quantity conversion logic
+    """
+    try:
+        data = request.get_json()
+        token = data.get("token")
+        if not token or not token_auth(token):
+            return jsonify({"error": "Invalid or missing token."}), 400
+
+        mydb = get_db_connection()
+        cursor = mydb.cursor()
+
+        # Helper functions for conversion (same as above)
+        def normalize_unit(unit):
+            # ... (same normalize_unit function)
+            pass
+
+        def calculate_converted_quantity(quantity, from_unit, to_unit, unit_value=1):
+            # ... (same calculate_converted_quantity function)
+            pass
+
+        # Check if sub-recipe exists
+        cursor.execute("SELECT id FROM sub_recipe WHERE id = %s", (id,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Sub recipe not found"}), 404
+
+        if request.method == "PUT":
+            # Full update logic with conversion
+            name = data.get("name")
+            outlet = data.get("outlet")
+            uom = data.get("uom")
+            unit = data.get("unit")
+            costprice = data.get("costprice", 0)
+            items = data.get("items", [])
+
+            if not name or not outlet or not isinstance(items, list):
+                return jsonify({"error": "Missing fields or invalid items format"}), 400
+
+            # Update sub_recipe
+            cursor.execute("""
+                UPDATE sub_recipe SET name = %s, outlet = %s, uom = %s, unit = %s, costprice = %s
+                WHERE id = %s
+            """, (name, outlet, uom, unit, costprice, id))
+
+            # Delete existing items
+            cursor.execute("DELETE FROM sub_recipe_items WHERE sub_recipe_id = %s", (id,))
+
+            # Insert new items with conversion
+            for item in items:
+                item_name = item.get("name")
+                rate = item.get("rate")
+                item_uom = item.get("uom")  # Base unit
+                new_uom = item.get("new_uom")  # User's unit
+                user_quantity = item.get("quantity")
+                cost = item.get("cost")
+                item_unit = item.get("unit", 1)
+
+                if not all([item_name, rate, item_uom, new_uom, user_quantity is not None, cost is not None]):
+                    continue
+
+                # Convert quantity
+                converted_quantity = calculate_converted_quantity(
+                    user_quantity,
+                    new_uom,
+                    item_uom,
+                    item_unit
+                )
+
+                cursor.execute("""
+                    INSERT INTO sub_recipe_items (sub_recipe_id, name, rate, uom, new_uom, quantity, cost, unit)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (id, item_name, rate, item_uom, new_uom, converted_quantity, cost, item_unit))
+
+            mydb.commit()
+            message = "Sub recipe updated successfully with conversion"
+
+        elif request.method == "PATCH":
+            # Partial update logic with conversion
+            # Update sub_recipe fields
+            sub_fields = []
+            sub_values = []
+            for field in ["name", "outlet", "uom", "unit", "costprice"]:
+                if field in data:
+                    sub_fields.append(f"{field} = %s")
+                    sub_values.append(data[field])
+
+            if sub_fields:
+                query = f"UPDATE sub_recipe SET {', '.join(sub_fields)} WHERE id = %s"
+                sub_values.append(id)
+                cursor.execute(query, tuple(sub_values))
+
+            # Update items
+            items = data.get("items", [])
+            for item in items:
+                item_id = item.get("id")
+                
+                # Convert quantity if needed
+                if "quantity" in item and "new_uom" in item and "uom" in item:
+                    user_quantity = item.get("quantity")
+                    new_uom = item.get("new_uom")
+                    item_uom = item.get("uom")
+                    item_unit = item.get("unit", 1)
+                    
+                    converted_quantity = calculate_converted_quantity(
+                        user_quantity,
+                        new_uom,
+                        item_uom,
+                        item_unit
+                    )
+                    item["quantity"] = converted_quantity
+
+                if item_id:
+                    # Update existing item
+                    item_fields = []
+                    item_values = []
+                    for field in ["name", "rate", "uom", "new_uom", "quantity", "cost", "unit"]:
+                        if field in item:
+                            item_fields.append(f"{field} = %s")
+                            item_values.append(item[field])
+                    
+                    if item_fields:
+                        query = f"UPDATE sub_recipe_items SET {', '.join(item_fields)} WHERE id = %s AND sub_recipe_id = %s"
+                        item_values.extend([item_id, id])
+                        cursor.execute(query, tuple(item_values))
+                else:
+                    # Insert new item
+                    required = ["name", "rate", "uom", "new_uom", "quantity", "cost"]
+                    if all(field in item for field in required):
+                        item_unit = item.get("unit", 1)
+                        cursor.execute("""
+                            INSERT INTO sub_recipe_items (sub_recipe_id, name, rate, uom, new_uom, quantity, cost, unit)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (id, item["name"], item["rate"], item["uom"], 
+                              item["new_uom"], item["quantity"], item["cost"], item_unit))
+
+            mydb.commit()
+            message = "Sub recipe patched successfully with conversion"
+
+        cursor.close()
+        mydb.close()
+        return jsonify({"message": message, "sub_recipe_id": id})
+
+    except Exception as e:
+        if mydb:
+            mydb.rollback()
+        return jsonify({"error": str(e)}), 400

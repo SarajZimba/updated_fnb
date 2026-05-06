@@ -168,6 +168,10 @@ from root.flask_routes.employee_outlets.remove_employeeaccess_to_outlet import a
 
 from root.flask_routes.postdebitnote import app_file224
 from root.flask_routes.menuengineering.getphysicalcost import app_file225
+from root.flask_routes.stock_current_level.stock_current_level import app_file226
+from root.flask_routes.purchasevendors import app_file227
+from root.flask_routes.purchasewithtransfer import app_file228
+from root.flask_routes.ordered_purchase.ordered_purchase import app_file229
 
 
 app.register_blueprint(app_file1)
@@ -317,6 +321,10 @@ app.register_blueprint(app_file220)
 app.register_blueprint(app_file221)
 app.register_blueprint(app_file224)
 app.register_blueprint(app_file225)
+app.register_blueprint(app_file226)
+app.register_blueprint(app_file227)
+app.register_blueprint(app_file228)
+app.register_blueprint(app_file229)
 
 
 @app.route("/entry1", methods=["POST"])

@@ -162,7 +162,7 @@ def reqdetails(id):
         
         # -------- FETCH PURCHASE REQUISITION DETAILS --------
         pr_sql = """
-        SELECT GRN, Outlet_PurchaseReqID, Outlet_Name, Company_Name, TotalAmount, ReceivedDate 
+        SELECT GRN, Outlet_PurchaseReqID, Outlet_Name, Company_Name, TotalAmount, ReceivedDate, purchaseBillNumber
         FROM intbl_purchaserequisition 
         WHERE IDIntbl_PurchaseRequisition = %s
         """
@@ -212,6 +212,7 @@ def reqdetails(id):
         debitnotes_data = []
         grn = purchase_requisition.get('GRN')
         outlet_purchase_req_id = purchase_requisition.get('Outlet_PurchaseReqID')
+        purchase_bill_no = purchase_requisition.get('purchaseBillNumber')
 
         conditions = []
         params = []
@@ -222,6 +223,14 @@ def reqdetails(id):
         if outlet_purchase_req_id:
             conditions.append("Outlet_PurchaseReqID = %s")
             params.append(outlet_purchase_req_id)
+
+        if purchase_bill_no:
+            conditions.append("purchaseBillNumber = %s")
+            params.append(purchase_bill_no)
+
+        if outlet_name:
+            conditions.append("Outlet_Name = %s")
+            params.append(outlet_name)
 
         if conditions:
             master_query = f"""

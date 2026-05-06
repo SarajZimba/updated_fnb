@@ -24,7 +24,7 @@ def reqfilterfirst():
         if not limit.isdigit():
             data={"error":"Limit must be an integer"}
             return data,400
-        sql = f"""select a.rate, a.UnitsOrdered, b.ReceivedDate from intbl_purchaserequisition_contract a, intbl_purchaserequisition b where a.PurchaseReqID = b.IDIntbl_PurchaseRequisition and a.ItemID =%s and b.Outlet_Name=%s order by a.PurchaseReqID desc limit %s;"""
+        sql = f"""select a.rate, a.UnitsOrdered, b.ReceivedDate from intbl_purchaserequisition_contract a, intbl_purchaserequisition b where a.PurchaseReqID = b.IDIntbl_PurchaseRequisition and a.Name =%s and b.Outlet_Name=%s order by a.PurchaseReqID desc limit %s;"""
         cursor.execute(sql,(item_id,outletname,int(limit),),)
         desc = cursor.description
         data = [dict(zip([col[0] for col in desc], row)) for row in cursor.fetchall()]

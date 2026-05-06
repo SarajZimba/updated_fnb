@@ -7,10 +7,6 @@ load_dotenv()
 app_file72= Blueprint('app_file72',__name__)
 from root.auth.check import token_auth
 
-
-
-
-
 @app_file72.route("/billinfo_byid", methods=["POST"])
 @cross_origin()
 def billinfo():

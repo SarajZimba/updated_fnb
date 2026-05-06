@@ -162,6 +162,11 @@ def manage_stock_statement():
             cursor.execute("SELECT * FROM stock_statement")
             result = cursor.fetchall()
 
+            for row in result:
+                current_level = float(row.get("CurrentLevel", 0))
+                rate = float(row.get("Rate", 0))
+                row["Total"] = current_level * rate
+
             cursor.close()
             mydb.close()
             return jsonify(result)

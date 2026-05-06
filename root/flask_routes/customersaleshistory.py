@@ -34,7 +34,7 @@ def customersaleshistory():
         endDate = json["end_date"]
         Outlet_Name = json["Outlet_Name"]
         if customer=="":
-            orderHistory =f"""SELECT Outlet_Name as Outlet,Date,bill_no as Bill,GuestName as Customer,Discounts as DiscountType, DiscountAmt as DiscountAmt,Total,PaymentMode as Mode FROM tblorderhistory WHERE  Date between %s and %s  and Outlet_Name=%s and not PaymentMode='Complimentary'  and not  PaymentMode='Non Chargeable' and not bill_no='' and not GuestName = '' ORDER BY ABS(bill_no)"""
+            orderHistory =f"""SELECT idtblorderhistory, Outlet_Name as Outlet,Date,bill_no as Bill,GuestName as Customer,Discounts as DiscountType, DiscountAmt as DiscountAmt,Total,PaymentMode as Mode FROM tblorderhistory WHERE  Date between %s and %s  and Outlet_Name=%s and not PaymentMode='Complimentary'  and not  PaymentMode='Non Chargeable' and not bill_no='' and not GuestName = '' ORDER BY ABS(bill_no)"""
             cursor.execute(orderHistory,(startDate,endDate,Outlet_Name,),)
             result = cursor.fetchall()
             if result == []:
@@ -60,7 +60,7 @@ def customersaleshistory():
             data["details"]=json_data
             mydb.close()
             return data,200
-        orderHistory =f"""SELECT Outlet_Name as Outlet,Date,bill_no as Bill,GuestName as Customer,Discounts as DiscountType, DiscountAmt as DiscountAmt,Total,PaymentMode as Mode FROM tblorderhistory WHERE  Date between %s and %s and GuestName  like %s and Outlet_Name=%s and not bill_no=''  and not PaymentMode='Complimentary'  and not  PaymentMode='Non Chargeable'  ORDER BY ABS(bill_no)"""
+        orderHistory =f"""SELECT idtblorderhistory, Outlet_Name as Outlet,Date,bill_no as Bill,GuestName as Customer,Discounts as DiscountType, DiscountAmt as DiscountAmt,Total,PaymentMode as Mode FROM tblorderhistory WHERE  Date between %s and %s and GuestName  like %s and Outlet_Name=%s and not bill_no=''  and not PaymentMode='Complimentary'  and not  PaymentMode='Non Chargeable'  ORDER BY ABS(bill_no)"""
         cursor.execute(orderHistory,(startDate,endDate,f"%{customer}%",Outlet_Name,),)
         result = cursor.fetchall()
         if result == []:
