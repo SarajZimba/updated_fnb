@@ -67,23 +67,15 @@ def post_wastage_items():
                 def_uom = unit_row['uom'] if unit_row else None
                 def_unit = Decimal(unit_row['unit']) if unit_row else Decimal(1)
 
-                # # Normalize quantity
-                # if uom == stock_uom:
-                #     normalized_qty = quantity
-                # elif uom == def_uom:
-                #     normalized_qty = quantity * (Decimal(1) / def_unit)
-                # else:
-                #     return jsonify({"error": f"Invalid UOM for item: {item_name}"}), 400
-
                 # total_to_deduct = normalized_qty
                 total_to_deduct = quantity
 
                 while total_to_deduct > 0:
                     cursor.execute("""
                         SELECT id, quantity, rate FROM item_current_level
-                        WHERE itemname = %s AND outlet = %s AND quantity > 0
+                        WHERE itemname = %s AND outlet = %s AND quantity > 0 AND costcenter = %s
                         ORDER BY id ASC LIMIT 1
-                    """, (item_name, outlet_name))
+                    """, (item_name, outlet_name, cost_center,))
                     stock_row = cursor.fetchone()
 
                     if not stock_row:

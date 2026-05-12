@@ -289,7 +289,7 @@ def check_and_insert_stock_items():
                         item.get('vendor_name', None),          # vendor_name
                         item.get('StockType', 'Stockable'),     # StockType
                         item.get('exp_date', None),             # exp_date
-                        item.get('taxable', 0),                 # taxable
+                        item.get('taxable'),                 # taxable
                         item.get('primary_unit', None),         # primary_unit
                         item.get('secondary_unit', None)        # secondary_unit
                     )
@@ -306,6 +306,15 @@ def check_and_insert_stock_items():
                     "item": item,
                     "reason": str(e)
                 })
+                return jsonify({
+                    "success": False,
+                    "message": f"Processed {len(items_list)} items. Inserted: {len(inserted_items)}, Already existed: {len(existing_items)}, Failed: {len(failed_items)}",
+                    "data": {
+                        "inserted": inserted_items,
+                        "existing": existing_items,
+                        "failed": failed_items
+                    }
+                }), 400
         
         # Commit all inserts
         mydb.commit()

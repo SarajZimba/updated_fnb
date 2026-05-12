@@ -243,6 +243,7 @@ def get_stock_statement():
         # Fetch stock statement with all fields including new ones
         sql_query = """
         SELECT 
+            `id`,
             `GroupName`,
             `ItemName`,
             `BrandName`,

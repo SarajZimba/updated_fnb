@@ -84,14 +84,14 @@ def outlets():
 
             # Get only outlets the employee has access to (status = TRUE)
             cursor.execute("""
-                SELECT o.id, o.Outlet, o.Company_name, o.address, o.logo, o.sms_text, o.bill_prefix, o.loyalty_percent
+                SELECT o.id, o.Outlet, o.Company_name, o.address, o.logo, o.sms_text, o.bill_prefix, o.loyalty_percent, o.id
                 FROM outetNames o
                 JOIN employeeoutlets eo ON eo.outlet_id = o.id
                 WHERE eo.employee_id = %s AND eo.status = TRUE
             """, (employee_id,))
 
         else:
-            get_outlet_sql =f"""select distinct Outlet, Company_name, address, loyalty_percent, sms_text, logo, bill_prefix from outetNames"""
+            get_outlet_sql =f"""select distinct Outlet, Company_name, address, loyalty_percent, sms_text, logo, bill_prefix, id from outetNames"""
             cursor.execute(get_outlet_sql)
             # result = cursor.fetchall()
             # if result == []:

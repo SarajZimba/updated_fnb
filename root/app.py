@@ -172,6 +172,14 @@ from root.flask_routes.stock_current_level.stock_current_level import app_file22
 from root.flask_routes.purchasevendors import app_file227
 from root.flask_routes.purchasewithtransfer import app_file228
 from root.flask_routes.ordered_purchase.ordered_purchase import app_file229
+from root.flask_routes.costcenters.costcenter import app_file230
+from root.flask_routes.production.production import app_file231
+from root.flask_routes.production.conversion_factor import app_file232
+
+from root.flask_routes.production.get_production_inventorycalculation import app_file234
+from root.flask_routes.production.production_consumption import app_file237
+from root.flask_routes.production.central_kitchen_issueditems import app_file238
+from root.flask_routes.production.production_wastage import production_wastage
 
 
 app.register_blueprint(app_file1)
@@ -325,6 +333,14 @@ app.register_blueprint(app_file226)
 app.register_blueprint(app_file227)
 app.register_blueprint(app_file228)
 app.register_blueprint(app_file229)
+app.register_blueprint(app_file230)
+app.register_blueprint(app_file231)
+app.register_blueprint(app_file232)
+
+app.register_blueprint(app_file234)
+app.register_blueprint(app_file237)
+app.register_blueprint(app_file238)
+app.register_blueprint(production_wastage)
 
 
 @app.route("/entry1", methods=["POST"])
